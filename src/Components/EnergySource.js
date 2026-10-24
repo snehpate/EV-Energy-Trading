@@ -1,25 +1,30 @@
 import React, { useState } from "react";
-import { getContract } from "../utils/web3";
+import { useWallet } from "../utils/WalletContext";
+import { useTransaction } from "../utils/useTransaction";
+import RequireWallet from "./RequireWallet";
+import StatusMessage from "./StatusMessage";
+import EnergySourceSelect from "./EnergySourceSelect";
 
 const EnergySource = () => {
   const [source, setSource] = useState("");
+  const { stats } = useWallet();
+  const { run, status, pending } = useTransaction();
 
-  const setEnergySource = async () => {
-    const contract = getContract();
-    await contract.setEnergySource(source);
-    alert("Energy source updated successfully!");
-  };
+  const setEnergySource = () =>
+    run((c) => c.setEnergySource(source), "Energy source updated successfully!");
 
   return (
-    <div>
-      <h3>Set Energy Source</h3>
-      <input
-        type="text"
-        placeholder="Energy Source"
-        value={source}
-        onChange={(e) => setSource(e.target.value)}
-      />
-      <button onClick={setEnergySource}>Update</button>
+    <div className="page">
+      <RequireWallet>
+        <div className="card">
+          <h3>Set Energy Source</h3>
+          <p className="muted">Current network energy source: {stats.energySource}</p>
+          {!stats.isAdmin && <p className="muted">Only admins can change the network energy source.</p>}
+          <EnergySourceSelect value={source} onChange={setSource} />
+          <button onClick={setEnergySource} disabled={pending || !source || !stats.isAdmin}>Update</button>
+          <StatusMessage status={status} />
+        </div>
+      </RequireWallet>
     </div>
   );
 };

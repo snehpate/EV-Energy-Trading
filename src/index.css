@@ -2,14 +2,19 @@ body {
   font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #f4f4f4;
+  background: #f4f4f4 url("./assets/bg.jpeg") center / cover fixed no-repeat;
 }
 
 header {
-  background-color: #007bff;
+  background-color: #0056b3;
   color: white;
   padding: 10px;
   text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.6rem;
 }
 
 footer {
@@ -22,8 +27,13 @@ footer {
   width: 100%;
 }
 
+footer p {
+  margin: 0;
+}
+
 button {
   padding: 10px;
+  margin: 5px 5px 5px 0;
   border: none;
   border-radius: 5px;
   background-color: #007bff;
@@ -35,6 +45,97 @@ button:hover {
   background-color: #0056b3;
 }
 
+button:disabled {
+  background-color: #9bbbe0;
+  cursor: not-allowed;
+}
+
+input,
+select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+
 main {
+  padding: 20px 20px 80px;
+}
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-radius: 6px;
+  background: #eef5ff;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.stat-value {
+  font-size: 1.15rem;
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.muted {
+  color: #666;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.status {
+  padding: 8px 12px;
+  border-radius: 5px;
+}
+
+.status-info {
+  background: #e7f1ff;
+  color: #004085;
+}
+
+.status-success {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.status-error {
+  background: #fdecea;
+  color: #a71d2a;
+}
+
+.hero {
+  text-align: center;
+  color: white;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }

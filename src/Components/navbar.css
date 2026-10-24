@@ -3,15 +3,19 @@
   color: white;
   padding: 10px 20px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
 .nav-links {
   list-style: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 15px;
   margin: 0;
+  padding: 0;
 }
 
 .nav-links li {
@@ -25,6 +29,23 @@
   transition: color 0.3s;
 }
 
-.nav-links a:hover {
-  color: #f0ad4e; /* Orange on hover */
+.nav-links a:hover,
+.nav-links a.active {
+  color: #f0ad4e; /* Orange on hover / current page */
+}
+
+.connect-button {
+  background-color: #f0ad4e;
+  margin: 0;
+}
+
+.connect-button:hover {
+  background-color: #ec971f;
+}
+
+.wallet-address {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-family: monospace;
 }

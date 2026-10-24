@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 contract EnergyToken is ERC20, AccessControl, Pausable {
     string public energySource;
     uint256 public transferFeePercentage = 2; // 2% transfer fee
-    uint256 public ecoIncentive = 1; // 1 additional token for eco-friendly sources
+    uint256 public ecoIncentive = 1; // Reward (smallest token unit) per transfer while the source is eco-friendly
     uint256 public constant MIN_STAKE = 10 * (10**18); // Minimum staking threshold
 
     mapping(address => uint256) public stakedBalances;
@@ -27,6 +27,9 @@ contract EnergyToken is ERC20, AccessControl, Pausable {
     event EnergySourceUpdated(string newSource);
     event TransferWithFee(address indexed sender, address indexed recipient, uint256 amountAfterFee, uint256 fee);
     event EcoIncentiveAwarded(address indexed account, uint256 amount);
+    event UserEnergySourceUpdated(address indexed account, string source);
+    event TransferFeeUpdated(uint256 newFee);
+    event EcoIncentiveUpdated(uint256 newIncentive);
 
     constructor(uint256 initialSupply, string memory _energySource) ERC20("EnergyToken", "ENG") {
         require(isEcoFriendly(_energySource), "Initial energy source must be eco-friendly");
@@ -56,19 +59,31 @@ contract EnergyToken is ERC20, AccessControl, Pausable {
 
     // Override transfer to include fee and eco-incentive
     function transfer(address recipient, uint256 amount) public override whenNotPaused returns (bool) {
+        _transferWithFee(_msgSender(), recipient, amount);
+        return true;
+    }
+
+    // Override transferFrom so allowance-based transfers pay the same fee
+    function transferFrom(address sender, address recipient, uint256 amount) public override whenNotPaused returns (bool) {
+        _spendAllowance(sender, _msgSender(), amount);
+        _transferWithFee(sender, recipient, amount);
+        return true;
+    }
+
+    // Moves `amount` out of `sender`: the recipient gets it minus the fee, and the fee is burned
+    function _transferWithFee(address sender, address recipient, uint256 amount) internal {
         uint256 fee = (amount * transferFeePercentage) / 100;
         uint256 amountAfterFee = amount - fee;
 
-        // Apply eco-incentive
-        if (isEcoFriendly(energySource)) {
-            _mint(msg.sender, ecoIncentive);
-            emit EcoIncentiveAwarded(msg.sender, ecoIncentive);
-        }
+        _transfer(sender, recipient, amountAfterFee);
+        _burn(sender, fee);
+        emit TransferWithFee(sender, recipient, amountAfterFee, fee);
 
-        _transfer(_msgSender(), recipient, amountAfterFee);
-        _burn(_msgSender(), fee);
-        emit TransferWithFee(msg.sender, recipient, amountAfterFee, fee);
-        return true;
+        // Apply eco-incentive (in the token's smallest unit)
+        if (isEcoFriendly(energySource) && ecoIncentive > 0) {
+            _mint(sender, ecoIncentive);
+            emit EcoIncentiveAwarded(sender, ecoIncentive);
+        }
     }
 
     // Helper function to verify eco-friendly sources
@@ -114,6 +129,12 @@ contract EnergyToken is ERC20, AccessControl, Pausable {
     // Set user-specific energy source
     function setUserEnergySource(string memory _energySource) public ecoFriendly(_energySource) {
         userEnergySources[msg.sender] = _energySource;
+        emit UserEnergySourceUpdated(msg.sender, _energySource);
+    }
+
+    // Get the amount of tokens staked by a user
+    function getStakedBalance(address user) public view returns (uint256) {
+        return stakedBalances[user];
     }
 
     // Get user-specific energy source
@@ -125,11 +146,13 @@ contract EnergyToken is ERC20, AccessControl, Pausable {
     function setTransferFeePercentage(uint256 newFee) public onlyRole(ADMIN_ROLE) {
         require(newFee <= 10, "Transfer fee cannot exceed 10%");
         transferFeePercentage = newFee;
+        emit TransferFeeUpdated(newFee);
     }
 
     // Update eco incentive
     function setEcoIncentive(uint256 newIncentive) public onlyRole(ADMIN_ROLE) {
         require(newIncentive <= 10, "Eco incentive cannot exceed 10 tokens");
         ecoIncentive = newIncentive;
+        emit EcoIncentiveUpdated(newIncentive);
     }
 }
