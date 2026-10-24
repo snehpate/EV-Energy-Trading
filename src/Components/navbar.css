@@ -13,7 +13,7 @@
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 15px;
+  gap: 4px;
   margin: 0;
   padding: 0;
 }
@@ -44,6 +44,7 @@
 }
 
 .wallet-address {
+  white-space: nowrap;
   background: rgba(255, 255, 255, 0.2);
   padding: 6px 12px;
   border-radius: 15px;

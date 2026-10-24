@@ -9,29 +9,39 @@ async function main() {
   const energySource = process.env.ENERGY_SOURCE || "Solar";
 
   const [deployer] = await ethers.getSigners();
-  console.log(`Deploying EnergyToken with account ${deployer.address}`);
+  const treasury = process.env.TREASURY_ADDRESS || deployer.address;
+  console.log(`Deploying with account ${deployer.address}`);
 
   const EnergyToken = await ethers.getContractFactory("EnergyToken");
-  const token = await EnergyToken.deploy(
-    ethers.utils.parseEther(initialSupply),
-    energySource
-  );
+  const token = await EnergyToken.deploy(ethers.utils.parseEther(initialSupply), energySource);
   await token.deployed();
-  console.log(`EnergyToken deployed to ${token.address} on ${hre.network.name}`);
+  const { blockNumber: deployBlock } = await token.deployTransaction.wait();
+  console.log(`EnergyToken deployed to ${token.address}`);
 
-  // Export address + ABI so the React front-end can talk to the contract
+  const EnergyMarketplace = await ethers.getContractFactory("EnergyMarketplace");
+  const marketplace = await EnergyMarketplace.deploy(token.address, treasury);
+  await marketplace.deployed();
+  console.log(`EnergyMarketplace deployed to ${marketplace.address}`);
+
+  // Escrow payments must not lose the transfer fee
+  await (await token.setFeeExempt(marketplace.address, true)).wait();
+  console.log("Marketplace exempted from token transfer fees");
+
+  // Export addresses + ABIs so the React front-end can talk to the contracts
   const { chainId } = await ethers.provider.getNetwork();
-  const artifact = await hre.artifacts.readArtifact("EnergyToken");
+  const tokenArtifact = await hre.artifacts.readArtifact("EnergyToken");
+  const marketplaceArtifact = await hre.artifacts.readArtifact("EnergyMarketplace");
   const deployment = {
-    address: token.address,
     network: hre.network.name,
     chainId,
+    deployBlock, // analytics reads marketplace events from here
     timestamp: new Date().toISOString(),
-    abi: artifact.abi,
+    token: { address: token.address, abi: tokenArtifact.abi },
+    marketplace: { address: marketplace.address, abi: marketplaceArtifact.abi },
   };
 
   const outFile = path.join(__dirname, "..", "src", "utils", "deployment.json");
-  fs.writeFileSync(outFile, JSON.stringify(deployment, null, 2));
+  fs.writeFileSync(outFile, JSON.stringify(deployment, null, 2) + "\n");
   console.log(`Deployment info written to ${path.relative(process.cwd(), outFile)}`);
 }
 

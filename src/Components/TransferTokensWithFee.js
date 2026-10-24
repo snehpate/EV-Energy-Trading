@@ -18,7 +18,7 @@ const TransferTokensWithFee = () => {
   const transferTokens = async () => {
     if (!validRecipient || !amount || Number(amount) <= 0) return;
     const ok = await run(
-      (c) => c.transfer(recipient, parseTokens(amount)),
+      ({ token }) => token.transfer(recipient, parseTokens(amount)),
       "Tokens transferred with fee successfully!"
     );
     if (ok) setAmount("");

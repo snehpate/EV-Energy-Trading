@@ -1,17 +1,18 @@
 import React from "react";
 import './Components/navbar.css';
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider } from "./utils/WalletContext";
 import Header from "./Components/Header";
 import Footer from "./Components/Footer";
-import StakeTokens from "./Components/StakeTokens";
 import Home from './Components/home';
-import BurnTokens from "./Components/BurnTokens";
+import Marketplace from "./Components/Marketplace";
+import SellEnergy from "./Components/SellEnergy";
+import Orders from "./Components/Orders";
+import StakeTokens from "./Components/StakeTokens";
 import TransferTokensWithFee from "./Components/TransferTokensWithFee";
-import EnergySource from "./Components/EnergySource";
-import EcoFriendlyStatus from "./Components/EcoFriendlyStatus";
-import UserEnergySource from "./Components/UserEnergySource";
+import Energy from "./Components/Energy";
+import Analytics from "./Components/Analytics";
 import Admin from "./Components/Admin";
 import Navbar from './Components/navbar';
 
@@ -24,14 +25,20 @@ const App = () => {
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/EcoFriendlyStatus" element={<EcoFriendlyStatus />} />
-            <Route path="/UserEnergySource" element={<UserEnergySource />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/sell" element={<SellEnergy />} />
+            <Route path="/orders" element={<Orders />} />
             <Route path="/stake" element={<StakeTokens />} />
-            <Route path="/burn" element={<BurnTokens />} />
             <Route path="/transfer" element={<TransferTokensWithFee />} />
-            <Route path="/energy-source" element={<EnergySource />} />
+            <Route path="/energy" element={<Energy />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="*" element={<Home />} />
+            {/* Older links */}
+            <Route path="/EcoFriendlyStatus" element={<Navigate to="/energy" replace />} />
+            <Route path="/UserEnergySource" element={<Navigate to="/energy" replace />} />
+            <Route path="/energy-source" element={<Navigate to="/energy" replace />} />
+            <Route path="/burn" element={<Navigate to="/admin" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
         <Footer />

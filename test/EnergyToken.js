@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("EnergyToken Contract", function () {
   const INITIAL_SUPPLY = ethers.utils.parseEther("1000000");
@@ -183,6 +184,83 @@ describe("EnergyToken Contract", function () {
       await expect(energyToken.connect(addr1).unstakeTokens()).to.be.revertedWith(
         "No staked balance to withdraw"
       );
+    });
+  });
+
+  describe("Staking rewards", function () {
+    const YEAR = 365 * 24 * 60 * 60;
+
+    it("Should accrue rewards at the staking APR", async function () {
+      const stakeAmount = ethers.utils.parseEther("1000");
+      await energyToken.stakeTokens(stakeAmount);
+      await time.increase(YEAR);
+
+      // 5% APR on 1000 ENG ~= 50 ENG after one year
+      const pending = await energyToken.pendingRewards(owner.address);
+      expect(pending).to.be.closeTo(ethers.utils.parseEther("50"), ethers.utils.parseEther("0.001"));
+    });
+
+    it("Should mint rewards on claim and keep them after unstaking", async function () {
+      const stakeAmount = ethers.utils.parseEther("1000");
+      await energyToken.stakeTokens(stakeAmount);
+      await time.increase(YEAR / 2);
+      await energyToken.unstakeTokens();
+
+      const pending = await energyToken.pendingRewards(owner.address);
+      expect(pending).to.be.gt(0);
+
+      // No more rewards accrue once unstaked
+      await time.increase(YEAR);
+      expect(await energyToken.pendingRewards(owner.address)).to.equal(pending);
+
+      await expect(energyToken.claimRewards())
+        .to.emit(energyToken, "RewardsClaimed")
+        .withArgs(owner.address, pending);
+      expect(await energyToken.balanceOf(owner.address)).to.equal(INITIAL_SUPPLY.add(pending));
+      expect(await energyToken.pendingRewards(owner.address)).to.equal(0);
+    });
+
+    it("Should reject claims with no rewards", async function () {
+      await expect(energyToken.connect(addr1).claimRewards()).to.be.revertedWith("No rewards to claim");
+    });
+
+    it("Should apply a new reward rate only from the time it changes", async function () {
+      const stakeAmount = ethers.utils.parseEther("1000");
+      await energyToken.stakeTokens(stakeAmount);
+      await time.increase(YEAR - 1);
+      await energyToken.setStakingRewardRate(1000); // 10%
+      await time.increase(YEAR);
+
+      // ~50 ENG at 5% for year one, ~100 ENG at 10% for year two
+      expect(await energyToken.pendingRewards(owner.address)).to.be.closeTo(
+        ethers.utils.parseEther("150"),
+        ethers.utils.parseEther("0.001")
+      );
+    });
+
+    it("Should track total staked and cap the reward rate", async function () {
+      await energyToken.stakeTokens(ethers.utils.parseEther("100"));
+      expect(await energyToken.totalStaked()).to.equal(ethers.utils.parseEther("100"));
+      await expect(energyToken.setStakingRewardRate(2001)).to.be.revertedWith(
+        "Reward rate cannot exceed 20%"
+      );
+      await expect(energyToken.connect(addr1).setStakingRewardRate(100)).to.be.revertedWithCustomError(
+        energyToken,
+        "AccessControlUnauthorizedAccount"
+      );
+    });
+  });
+
+  describe("Fee exemptions", function () {
+    it("Should skip fee and incentive for exempt addresses", async function () {
+      await expect(energyToken.setFeeExempt(addr1.address, true))
+        .to.emit(energyToken, "FeeExemptionUpdated")
+        .withArgs(addr1.address, true);
+      const amount = ethers.utils.parseEther("100");
+      await energyToken.transfer(addr1.address, amount);
+
+      expect(await energyToken.balanceOf(addr1.address)).to.equal(amount);
+      expect(await energyToken.balanceOf(owner.address)).to.equal(INITIAL_SUPPLY.sub(amount));
     });
   });
 
