@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { getContracts, getErrorMessage } from "./web3";
+import { getContracts, getErrorMessage, switchNetwork as requestSwitch } from "./web3";
 
 const WalletContext = createContext(null);
 
@@ -27,6 +27,7 @@ const emptyStats = {
     deliveryWindow: 0,
     paused: false,
   },
+  faucet: null, // { dripAmount, waitSeconds } on networks with a faucet
 };
 
 export const WalletProvider = ({ children }) => {
@@ -37,7 +38,9 @@ export const WalletProvider = ({ children }) => {
   const [error, setError] = useState("");
   const loading = useRef(false);
 
-  const loadStats = useCallback(async ({ token, market }, addr) => {
+  const [wrongNetwork, setWrongNetwork] = useState(false);
+
+  const loadStats = useCallback(async ({ token, market, faucet }, addr) => {
     const [
       balance,
       staked,
@@ -75,6 +78,17 @@ export const WalletProvider = ({ children }) => {
       market.deliveryWindow(),
       market.paused(),
     ]);
+    const faucetStats = faucet
+      ? await Promise.all([
+          faucet.dripAmount(),
+          faucet.nextClaimTime(addr),
+          faucet.provider.getBlock("latest"),
+        ]).then(([dripAmount, next, block]) => ({
+          dripAmount,
+          // seconds until the next claim, measured in chain time
+          waitSeconds: next.toNumber() - block.timestamp,
+        }))
+      : null;
     setStats({
       balance,
       staked,
@@ -99,12 +113,14 @@ export const WalletProvider = ({ children }) => {
         deliveryWindow: deliveryWindow.toNumber(),
         paused: marketPaused,
       },
+      faucet: faucetStats,
     });
   }, []);
 
   const connect = useCallback(async () => {
     try {
       setError("");
+      setWrongNetwork(false);
       const c = await getContracts();
       const addr = await c.signer.getAddress();
       await loadStats(c, addr);
@@ -115,9 +131,19 @@ export const WalletProvider = ({ children }) => {
       setContracts(null);
       setAccount("");
       setStats(emptyStats);
+      setWrongNetwork(err?.name === "WrongNetworkError");
       setError(getErrorMessage(err));
     }
   }, [loadStats]);
+
+  const switchNetwork = useCallback(async () => {
+    try {
+      await requestSwitch();
+      await connect();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }, [connect]);
 
   const refresh = useCallback(async () => {
     if (!contracts || !account || loading.current) return;
@@ -146,7 +172,7 @@ export const WalletProvider = ({ children }) => {
   useEffect(() => {
     if (!window.ethereum?.on) return undefined;
     const handleChange = () => {
-      if (account) connect();
+      if (account || wrongNetwork) connect();
     };
     window.ethereum.on("accountsChanged", handleChange);
     window.ethereum.on("chainChanged", handleChange);
@@ -154,7 +180,7 @@ export const WalletProvider = ({ children }) => {
       window.ethereum.removeListener("accountsChanged", handleChange);
       window.ethereum.removeListener("chainChanged", handleChange);
     };
-  }, [account, connect]);
+  }, [account, wrongNetwork, connect]);
 
   return (
     <WalletContext.Provider
@@ -163,6 +189,10 @@ export const WalletProvider = ({ children }) => {
         contracts,
         token: contracts?.token,
         market: contracts?.market,
+        faucet: contracts?.faucet,
+        deployment: contracts?.deployment,
+        wrongNetwork,
+        switchNetwork,
         stats,
         blockNumber,
         error,

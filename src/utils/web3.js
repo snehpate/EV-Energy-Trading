@@ -1,20 +1,87 @@
 import { ethers } from "ethers";
-import deployment from "./deployment.json";
+
+// Every deployments/<chainId>.json written by scripts/deploy.js is bundled automatically
+const deploymentFiles = require.context("./deployments", false, /^\.\/\d+\.json$/);
+const deployments = Object.fromEntries(
+  deploymentFiles.keys().map((key) => {
+    const d = deploymentFiles(key);
+    return [Number(d.chainId), d];
+  })
+);
+
+const NETWORKS = {
+  1: { name: "Ethereum Mainnet" },
+  11155111: {
+    name: "Sepolia testnet",
+    params: {
+      chainId: "0xaa36a7",
+      chainName: "Sepolia",
+      nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+      rpcUrls: ["https://rpc.sepolia.org"],
+      blockExplorerUrls: ["https://sepolia.etherscan.io"],
+    },
+  },
+  31337: { name: "Local Hardhat node" },
+};
 
 export const ECO_SOURCES = ["Solar", "Wind", "Hydro"];
 
 // Estimated CO2 avoided per kWh of renewable energy vs. average grid electricity
 export const CO2_KG_PER_KWH = 0.4;
 
-export const isDeployed = () =>
-  Boolean(deployment.token?.address && deployment.marketplace?.address);
+export const isDeployed = () => Object.keys(deployments).length > 0;
 
-export const getDeployment = () => deployment;
+export const getDeployment = (chainId) => deployments[chainId];
 
-// Ask the wallet for access and return signer-backed contracts
+export const networkName = (chainId) => NETWORKS[chainId]?.name || `chain ${chainId}`;
+
+// The network the app asks wallets to use: a public deployment when one exists, else local
+export const preferredChainId = () => {
+  const ids = Object.keys(deployments).map(Number);
+  const configured = Number(process.env.REACT_APP_DEFAULT_CHAIN_ID);
+  if (ids.includes(configured)) return configured;
+  return ids.find((id) => id !== 31337) || ids[0];
+};
+
+export class WrongNetworkError extends Error {
+  constructor(chainId) {
+    super(
+      `This app is not deployed on ${networkName(chainId)}. Switch your wallet to ${networkName(preferredChainId())}.`
+    );
+    this.name = "WrongNetworkError";
+  }
+}
+
+export const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Opens the current page inside the MetaMask mobile app's browser
+export const metaMaskDeepLink = () =>
+  `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+
+// Ask the wallet to switch to (or add) the app's network
+export const switchNetwork = async () => {
+  const chainId = preferredChainId();
+  const hexId = `0x${chainId.toString(16)}`;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexId }] });
+  } catch (error) {
+    // 4902: the wallet does not know this chain yet
+    if (error?.code === 4902 && NETWORKS[chainId]?.params) {
+      await window.ethereum.request({ method: "wallet_addEthereumChain", params: [NETWORKS[chainId].params] });
+    } else {
+      throw error;
+    }
+  }
+};
+
+// Ask the wallet for access and return signer-backed contracts for its network
 export const getContracts = async () => {
   if (!window.ethereum) {
-    throw new Error("No Ethereum wallet found. Please install MetaMask.");
+    throw new Error(
+      isMobile()
+        ? "Open this page in the MetaMask app to connect."
+        : "No Ethereum wallet found. Please install MetaMask."
+    );
   }
   if (!isDeployed()) {
     throw new Error("Contracts not deployed. Run `npm run deploy:local` first.");
@@ -24,18 +91,22 @@ export const getContracts = async () => {
   await provider.send("eth_requestAccounts", []);
 
   const { chainId } = await provider.getNetwork();
-  if (deployment.chainId && chainId !== deployment.chainId) {
-    throw new Error(
-      `Wrong network: switch your wallet to chain ${deployment.chainId} (${deployment.network}).`
-    );
+  const deployment = deployments[chainId];
+  if (!deployment) {
+    throw new WrongNetworkError(chainId);
   }
 
   const signer = provider.getSigner();
   return {
     provider,
     signer,
+    chainId,
+    deployment,
     token: new ethers.Contract(deployment.token.address, deployment.token.abi, signer),
     market: new ethers.Contract(deployment.marketplace.address, deployment.marketplace.abi, signer),
+    faucet: deployment.faucet
+      ? new ethers.Contract(deployment.faucet.address, deployment.faucet.abi, signer)
+      : null,
   };
 };
 

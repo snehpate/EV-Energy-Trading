@@ -1,0 +1,48 @@
+name: Deploy contracts to Sepolia
+
+# Run manually from the Actions tab. Needs two repository secrets
+# (Settings → Secrets and variables → Actions):
+#   DEPLOYER_PRIVATE_KEY  private key of a dedicated test wallet holding Sepolia ETH
+#   SEPOLIA_RPC_URL       an RPC endpoint, e.g. https://eth-sepolia.g.alchemy.com/v2/<key>
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to deploy new contracts (existing Sepolia data will no longer be used by the website)'
+        required: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    if: ${{ github.event.inputs.confirm == 'deploy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Deploy
+        run: npm run deploy:sepolia
+        env:
+          PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+      - name: Commit deployment file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/utils/deployments/11155111.json
+          git commit -m "Deploy contracts to Sepolia"
+          git push origin HEAD:main
+
+  website:
+    needs: deploy
+    uses: ./.github/workflows/pages.yml

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useWallet } from "../utils/WalletContext";
-import { CO2_KG_PER_KWH, ECO_SOURCES, displayTokens, getDeployment, getErrorMessage, shortAddress } from "../utils/web3";
+import { CO2_KG_PER_KWH, ECO_SOURCES, displayTokens, getErrorMessage, shortAddress } from "../utils/web3";
 import RequireWallet from "./RequireWallet";
 import StatTile from "./StatTile";
 
@@ -55,14 +55,14 @@ const describe = (e, kwhByOrder) => {
 };
 
 const Analytics = () => {
-  const { market, token, contracts, blockNumber } = useWallet();
+  const { market, token, contracts, deployment, blockNumber } = useWallet();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     if (!market) return;
     try {
-      const fromBlock = getDeployment().deployBlock || 0;
+      const fromBlock = deployment?.deployBlock || 0;
       const [kwhTraded, volume, fees, orderCount, listingCount, supply, staked, bySource, events] =
         await Promise.all([
           market.totalKwhTraded(),
@@ -134,7 +134,7 @@ const Analytics = () => {
     } catch (err) {
       setError(getErrorMessage(err));
     }
-  }, [market, token, contracts]);
+  }, [market, token, contracts, deployment]);
 
   useEffect(() => {
     load();

@@ -1,6 +1,6 @@
 // Fills a local deployment with demo data: funded accounts, listings and orders.
 const hre = require("hardhat");
-const deployment = require("../src/utils/deployment.json");
+const deployment = require("../src/utils/deployments/31337.json");
 
 const { ethers } = hre;
 const eng = (n) => ethers.utils.parseEther(String(n));

@@ -39,15 +39,20 @@ The EV Marketplace is a blockchain platform for **peer-to-peer renewable energy 
 contracts/
   EnergyToken.sol          ERC-20 token: fees, eco incentive, staking rewards, roles
   EnergyMarketplace.sol    P2P energy marketplace with escrow, ratings and stats
+  EnergyFaucet.sol         Test networks only: free daily ENG for testers
 scripts/
-  deploy.js                Deploys both contracts, exempts the escrow from fees and
-                           writes src/utils/deployment.json (addresses + ABIs)
+  deploy.js                Deploys the contracts, exempts escrow/faucet from fees and
+                           writes src/utils/deployments/<chainId>.json (addresses + ABIs)
   seed.js                  Fills a local chain with demo accounts, listings and orders
-test/                      Contract test suites (48 tests)
+test/                      Contract test suites (51 tests)
 src/
+  utils/deployments/       One file per network; the app uses the one matching the wallet
   utils/                   web3 helpers, wallet context, transaction hook
   Components/              Pages and shared UI components
-.github/workflows/ci.yml   Compiles, tests and builds on every push / PR
+.github/workflows/
+  ci.yml                   Compiles, tests and builds on every push / PR
+  pages.yml                Publishes the website to GitHub Pages
+  deploy-contracts.yml     Deploys the contracts to Sepolia (run manually)
 ```
 
 ---
@@ -84,7 +89,7 @@ npm start              # open http://localhost:3000
    | #1 | Solar farm (seller) |
    | #2 | Wind co-op (seller, has a pending order to claim) |
    | #3, #4 | EV drivers (buyers) |
-3. Optionally add the token to MetaMask with the token address from `src/utils/deployment.json` (symbol `ENG`, 18 decimals).
+3. Optionally add the token to MetaMask with the token address from `src/utils/deployments/31337.json` (symbol `ENG`, 18 decimals).
 
 > Restarting `npm run node` wipes the chain: redeploy (and reseed), then in MetaMask use *Settings → Advanced → Clear activity tab data* to reset the account nonces.
 
@@ -96,10 +101,28 @@ npm start              # open http://localhost:3000
 
 ---
 
-## Deploying to Sepolia
-1. Copy `.env.example` to `.env` and fill in `PRIVATE_KEY` and `INFURA_API_KEY`. Optional: `INITIAL_SUPPLY`, `ENERGY_SOURCE`, `TREASURY_ADDRESS`.
-2. `npm run deploy:sepolia`
-3. `npm run build` (or restart `npm start`) and switch MetaMask to Sepolia.
+## Going Live (Sepolia testnet + GitHub Pages)
+
+The public version runs on **Sepolia**, Ethereum's free test network, and the website is hosted on **GitHub Pages**. Testers use MetaMask (desktop extension or the MetaMask mobile app) and claim free ENG from the built-in faucet.
+
+### One-time setup
+1. **Create a deployer wallet.** In MetaMask, add a new account used only for this project. Never use a wallet that holds real funds.
+2. **Get Sepolia ETH** for gas (about 0.05 ETH is plenty) from a public faucet, e.g. [Google Cloud](https://cloud.google.com/application/web3/faucet/ethereum/sepolia) or [Alchemy](https://www.alchemy.com/faucets/ethereum-sepolia).
+3. **Get an RPC URL.** Create a free app at [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/) and copy its Sepolia HTTPS URL.
+4. **Add repository secrets** (GitHub → Settings → Secrets and variables → Actions → New repository secret):
+   - `DEPLOYER_PRIVATE_KEY` – the deployer account's private key (MetaMask → account details → Show private key)
+   - `SEPOLIA_RPC_URL` – the URL from step 3
+5. **Enable GitHub Pages:** Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+
+### Deploy
+1. GitHub → **Actions** → **Deploy contracts to Sepolia** → **Run workflow**, type `deploy`.
+   The workflow runs the tests, deploys the token, marketplace and faucet (funded with 100,000 ENG), commits `src/utils/deployments/11155111.json`, and publishes the website.
+2. Open `https://<your-username>.github.io/EV-Energy-Trading/`. On a phone, tap **Open in MetaMask app**.
+
+Every later push to `main` republishes the website automatically. Re-run the contract workflow only when the contracts change; it creates fresh contracts and the site switches to them.
+
+### Deploying from your own computer instead
+Copy `.env.example` to `.env`, fill in `PRIVATE_KEY` and `SEPOLIA_RPC_URL`, then run `npm run deploy:sepolia`. Commit the generated `src/utils/deployments/11155111.json` and push.
 
 ---
 
@@ -148,7 +171,7 @@ npm start              # open http://localhost:3000
 
 ## Troubleshooting
 1. **"Contracts not deployed"** – run `npm run deploy:local` with the node running, then restart `npm start`.
-2. **"Wrong network"** – switch MetaMask to the chain the contracts were deployed to (31337 locally).
+2. **"This app is not deployed on …"** – tap **Switch to …** or switch MetaMask to the network you deployed to (31337 locally, Sepolia online).
 3. **Transactions fail after restarting the node** – redeploy and reset MetaMask activity data (see above).
 4. **Admin page missing** – only the deployer account has `ADMIN_ROLE`.
 5. **"Price changed"** when buying – the seller updated the price; reopen the listing and try again.

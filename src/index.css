@@ -450,3 +450,7 @@ th {
     grid-template-columns: 1fr;
   }
 }
+
+.connect-prompt {
+  text-align: center;
+}

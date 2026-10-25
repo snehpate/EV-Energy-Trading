@@ -1,7 +1,7 @@
 import React from "react";
 import './Components/navbar.css';
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider } from "./utils/WalletContext";
 import Header from "./Components/Header";
 import Footer from "./Components/Footer";
@@ -15,6 +15,9 @@ import Energy from "./Components/Energy";
 import Analytics from "./Components/Analytics";
 import Admin from "./Components/Admin";
 import Navbar from './Components/navbar';
+
+// Static hosts such as GitHub Pages cannot serve deep links, so those builds use #/ routes
+const Router = process.env.REACT_APP_HASH_ROUTER === "true" ? HashRouter : BrowserRouter;
 
 const App = () => {
   return (

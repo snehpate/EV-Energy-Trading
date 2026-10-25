@@ -1,13 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useWallet } from "../utils/WalletContext";
-import { CO2_KG_PER_KWH, displayTokens, getDeployment, isDeployed } from "../utils/web3";
+import { CO2_KG_PER_KWH, displayTokens, isDeployed, networkName } from "../utils/web3";
 import StatTile from "./StatTile";
+import ConnectPrompt from "./ConnectPrompt";
+import FaucetCard from "./FaucetCard";
 import Stars from "./Stars";
 
 const Home = () => {
-  const { account, stats, connect, error } = useWallet();
-  const deployment = getDeployment();
+  const { account, stats, deployment } = useWallet();
   const co2Saved = stats.market.kwhBought * CO2_KG_PER_KWH;
 
   return (
@@ -64,19 +65,17 @@ const Home = () => {
             </div>
           </div>
 
+          <FaucetCard />
+
           <p className="muted footnote">
-            Network: {deployment.network} &middot; Token {deployment.token?.address} &middot; Marketplace{" "}
+            Network: {networkName(deployment?.chainId)} &middot; Token {deployment.token?.address} &middot; Marketplace{" "}
             {deployment.marketplace?.address}
             {stats.paused && " · Token transfers are paused"}
             {stats.market.paused && " · Marketplace is paused"}
           </p>
         </>
       ) : (
-        <div className="card" style={{ textAlign: "center" }}>
-          <p>Connect your wallet to start trading energy.</p>
-          <button onClick={connect}>Connect Wallet</button>
-          {error && <p className="status status-error">{error}</p>}
-        </div>
+        <ConnectPrompt message="Connect your wallet to start trading energy." />
       )}
     </div>
   );

@@ -2,7 +2,7 @@ require("@nomiclabs/hardhat-ethers");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("dotenv").config();
 
-const { PRIVATE_KEY, INFURA_API_KEY } = process.env;
+const { PRIVATE_KEY, INFURA_API_KEY, SEPOLIA_RPC_URL } = process.env;
 
 const networks = {
   localhost: {
@@ -10,11 +10,13 @@ const networks = {
   },
 };
 
-// Only register the public testnet when credentials are provided
-if (PRIVATE_KEY && INFURA_API_KEY) {
+// Only register the public testnet when credentials are provided.
+// SEPOLIA_RPC_URL can be any provider (Alchemy, Infura, ...); INFURA_API_KEY is a shortcut.
+const sepoliaUrl = SEPOLIA_RPC_URL || (INFURA_API_KEY && `https://sepolia.infura.io/v3/${INFURA_API_KEY}`);
+if (PRIVATE_KEY && sepoliaUrl) {
   networks.sepolia = {
-    url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
-    accounts: [PRIVATE_KEY],
+    url: sepoliaUrl,
+    accounts: [PRIVATE_KEY.startsWith("0x") ? PRIVATE_KEY : `0x${PRIVATE_KEY}`],
   };
 }
 

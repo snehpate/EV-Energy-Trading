@@ -27,8 +27,21 @@ async function main() {
   await (await token.setFeeExempt(marketplace.address, true)).wait();
   console.log("Marketplace exempted from token transfer fees");
 
-  // Export addresses + ABIs so the React front-end can talk to the contracts
   const { chainId } = await ethers.provider.getNetwork();
+
+  // Test networks get a faucet so public testers can claim ENG themselves
+  let faucet;
+  if (chainId !== 1) {
+    const EnergyFaucet = await ethers.getContractFactory("EnergyFaucet");
+    faucet = await EnergyFaucet.deploy(token.address);
+    await faucet.deployed();
+    await (await token.setFeeExempt(faucet.address, true)).wait();
+    const funding = ethers.utils.parseEther(process.env.FAUCET_FUNDING || "100000");
+    await (await token.transfer(faucet.address, funding)).wait();
+    console.log(`EnergyFaucet deployed to ${faucet.address} and funded`);
+  }
+
+  // Export addresses + ABIs so the React front-end can talk to the contracts
   const tokenArtifact = await hre.artifacts.readArtifact("EnergyToken");
   const marketplaceArtifact = await hre.artifacts.readArtifact("EnergyMarketplace");
   const deployment = {
@@ -39,8 +52,13 @@ async function main() {
     token: { address: token.address, abi: tokenArtifact.abi },
     marketplace: { address: marketplace.address, abi: marketplaceArtifact.abi },
   };
+  if (faucet) {
+    const faucetArtifact = await hre.artifacts.readArtifact("EnergyFaucet");
+    deployment.faucet = { address: faucet.address, abi: faucetArtifact.abi };
+  }
 
-  const outFile = path.join(__dirname, "..", "src", "utils", "deployment.json");
+  // One file per chain; the front-end picks the one matching the wallet's network
+  const outFile = path.join(__dirname, "..", "src", "utils", "deployments", `${chainId}.json`);
   fs.writeFileSync(outFile, JSON.stringify(deployment, null, 2) + "\n");
   console.log(`Deployment info written to ${path.relative(process.cwd(), outFile)}`);
 }
